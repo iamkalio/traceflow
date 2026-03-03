@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traceflow-ai"
+version = "0.3.0"
+description = "AI/LLM observability: trace prompts, completions, cost, and latency to your dashboard"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Traceflow AI" }]
+license = "MIT"
+dependencies = []
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["traceflow_ai*"]

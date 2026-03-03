@@ -1,0 +1,12 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - dashboard_data:/app/backend/data
+    environment:
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  dashboard_data:

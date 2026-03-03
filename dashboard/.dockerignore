@@ -1,0 +1,8 @@
+backend/__pycache__
+backend/data
+*.pyc
+.venv
+venv
+.git
+.gitignore
+*.md

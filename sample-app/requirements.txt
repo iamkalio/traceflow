@@ -1,0 +1,2 @@
+openai>=1.0
+traceflow-ai[openai]>=0.3.0

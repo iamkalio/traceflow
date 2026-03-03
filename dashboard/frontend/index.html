@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Traceflow AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.23/dist/uPlot.min.css" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <h1>Traceflow</h1>
+    <nav class="tabs">
+      <button type="button" class="active" data-tab="tracing">Tracing</button>
+      <button type="button" data-tab="monitoring">Monitoring</button>
+    </nav>
+    <div class="range">
+      <label for="since">Time range</label>
+      <select id="since">
+        <option value="0" selected>All time</option>
+        <option value="24">Last 24h</option>
+        <option value="168">Last 7 days</option>
+      </select>
+    </div>
+  </header>
+  <main class="main">
+    <section id="tracing" class="active">
+      <div class="filters">
+        <input type="text" id="filter-name" placeholder="Search name or ID" class="filter-input" />
+        <select id="filter-status" class="filter-select">
+          <option value="">Status: All</option>
+          <option value="success">Success</option>
+          <option value="error">Error</option>
+        </select>
+        <input type="text" id="filter-model" placeholder="Model" class="filter-input" />
+        <label class="filter-checkbox"><input type="checkbox" id="filter-error-only" /> Errors only</label>
+        <select id="page-size" class="filter-select">
+          <option value="25">25 per page</option>
+          <option value="50" selected>50 per page</option>
+          <option value="100">100 per page</option>
+        </select>
+      </div>
+      <div id="list"></div>
+      <div id="pagination" class="pagination"></div>
+      <div id="trace-detail-overlay" class="detail-overlay" aria-hidden="true">
+        <div class="detail-overlay-backdrop" aria-label="Close"></div>
+        <aside class="detail-panel" role="dialog" aria-labelledby="detail-title">
+          <div class="detail-content" id="detail-content"></div>
+        </aside>
+      </div>
+    </section>
+    <section id="monitoring">
+      <div class="panels" id="summary"></div>
+      <div class="panels">
+        <div class="panel"><h3>Trace count</h3><div id="chart-count" class="chart"></div></div>
+        <div class="panel"><h3>Total cost ($)</h3><div id="chart-cost" class="chart"></div></div>
+      </div>
+      <div class="panels">
+        <div class="panel"><h3>Error rate (%)</h3><div id="chart-errors" class="chart"></div></div>
+        <div class="panel"><h3>Avg latency (ms)</h3><div id="chart-latency" class="chart"></div></div>
+      </div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.23/dist/uPlot.iife.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
