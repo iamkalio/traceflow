@@ -25,23 +25,21 @@ pip install traceflow-ai[openai]
 
 ## Quick start
 
-**1. Run the dashboard** (API + UI)
+**1. Run the dashboard**
 
-**Option A — Docker (recommended):**
-
-```bash
-cd dashboard && docker compose up --build
-```
-
-**Option B — Local:**
+Using the image from [Docker Hub](https://hub.docker.com/r/iamkalio/traceflow-dashboard):
 
 ```bash
-cd dashboard/backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000
+docker run -p 8000:8000 iamkalio/traceflow-dashboard
 ```
 
-Open **http://localhost:8000**
+Open **http://localhost:8000**. The dashboard (API + UI) receives traces from the SDK and shows them in a simple UI (traces, spans, cost, latency). Backend is FastAPI with SQLite; no external database.
 
-**2. In your app:**
+**2. In your app**
+
+```bash
+pip install traceflow-ai[openai]
+```
 
 ```python
 import traceflow_ai
@@ -52,7 +50,15 @@ client = OpenAI()
 # Use client.chat.completions.create(...) as usual — traces appear in the dashboard
 ```
 
-**3. Try the sample app** — `sample-app/` has a minimal example; install deps and run `python3 app.py` (with the dashboard running and `OPENAI_API_KEY` set).
+**3. Run from this repo** (if you forked or cloned)
+
+```bash
+cd dashboard && docker compose up --build
+```
+
+Or run the backend locally: `cd dashboard/backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`.
+
+**4. Sample app** — `sample-app/` has a minimal example; run `python3 app.py` with the dashboard running and `OPENAI_API_KEY` set.
 
 ## Project
 
