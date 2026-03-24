@@ -1,4 +1,4 @@
-# Sample app — full SDK test
+# Example — full SDK test
 
 Tests Traceflow AI SDK: init, auto-patch, custom attributes, manual spans, nested spans (trace → spans), and error traces.
 
@@ -15,10 +15,10 @@ Uses `traceflow-ai[openai]>=0.3.0` from PyPI.
 1. Start the dashboard (from repo root):
 
    ```bash
-   cd dashboard/backend && uvicorn main:app --reload --port 8000
+   cd src && uvicorn main:app --reload --port 8000
    ```
 
-2. Run the sample app:
+2. Run the example:
 
    ```bash
    python app.py

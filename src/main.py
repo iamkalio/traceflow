@@ -13,9 +13,9 @@ from schemas import TraceIn
 app = FastAPI(title="Traceflow AI Dashboard API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
-if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+APP_DIR = Path(__file__).resolve().parent.parent / "app"
+if APP_DIR.exists():
+    app.mount("/static", StaticFiles(directory=APP_DIR), name="static")
 
 
 @app.on_event("startup")
@@ -232,7 +232,7 @@ def get_stats(since_hours: int | None = 168) -> dict:
 @app.get("/")
 def serve_ui() -> FileResponse:
     """Serve dashboard UI."""
-    index = FRONTEND_DIR / "index.html"
+    index = APP_DIR / "index.html"
     if not index.exists():
         raise HTTPException(status_code=404, detail="Dashboard UI not found")
     return FileResponse(index)

@@ -53,20 +53,21 @@ client = OpenAI()
 **3. Run from this repo** (if you forked or cloned)
 
 ```bash
-cd dashboard && docker compose up --build
+docker compose up --build
 ```
 
-Or run the backend locally: `cd dashboard/backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`.
+Or run the backend locally: `cd src && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`.
 
-**4. Sample app** — `sample-app/` has a minimal example; run `python3 app.py` with the dashboard running and `OPENAI_API_KEY` set.
+**4. Example** — `example/` has a minimal example; run `python3 app.py` with the dashboard running and `OPENAI_API_KEY` set.
 
 ## Project
 
 | Part        | Description                    |
 | ----------- | ------------------------------ |
 | `sdk/`      | **traceflow-ai** — PyPI package |
-| `dashboard/`| Backend (FastAPI + SQLite) + frontend |
-| `sample-app/` | Example app using the SDK   |
+| `src/`      | FastAPI + SQLite (API + serves UI) |
+| `app/`      | Dashboard static assets (HTML/CSS/JS) |
+| `example/`  | Example app using the SDK      |
 | `docs/`     | Specs, roadmap, architecture   |
 
 ---

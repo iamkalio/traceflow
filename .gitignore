@@ -35,13 +35,13 @@ ENV/
 logforge-data/
 
 # Dashboard SQLite
-dashboard/backend/data/
+src/data/
 
 # Env
 .env
 .env.local
 
-# Node (dashboard frontend)
+# Node (dashboard app)
 node_modules/
 npm-debug.log*
 

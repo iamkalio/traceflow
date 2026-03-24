@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - dashboard_data:/app/backend/data
+      - dashboard_data:/app/src/data
     environment:
       - PYTHONUNBUFFERED=1
 

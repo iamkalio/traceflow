@@ -11,7 +11,7 @@ DASHBOARD = "http://localhost:8000"
 # Init with custom attributes so every trace gets them
 traceflow_ai.init(
     endpoint=DASHBOARD,
-    attributes={"source": "sample-app", "env": "test"},
+    attributes={"source": "example", "env": "test"},
     patch_openai=True,
 )
 client = OpenAI()
