@@ -15,6 +15,17 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   db_viewer:
     image: adminer:4
     ports:
@@ -29,9 +40,13 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://traceflow:traceflow@postgres:5432/traceflow
+      REDIS_URL: redis://redis:6379/0
+      EVAL_QUEUE_NAME: eval
       PYTHONUNBUFFERED: "1"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:
