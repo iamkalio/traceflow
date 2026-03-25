@@ -1,12 +1,38 @@
 services:
-  dashboard:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: traceflow
+      POSTGRES_PASSWORD: traceflow
+      POSTGRES_DB: traceflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traceflow -d traceflow"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  db_viewer:
+    image: adminer:4
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
     build: .
     ports:
       - "8000:8000"
-    volumes:
-      - dashboard_data:/app/src/data
     environment:
-      - PYTHONUNBUFFERED=1
+      DATABASE_URL: postgresql+psycopg://traceflow:traceflow@postgres:5432/traceflow
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
-  dashboard_data:
+  pgdata:

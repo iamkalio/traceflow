@@ -34,7 +34,7 @@ ENV/
 # LogForge data
 logforge-data/
 
-# Dashboard SQLite
+# Local SQLite (legacy; app uses PostgreSQL)
 src/data/
 
 # Env
