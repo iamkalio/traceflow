@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 import redis
 from rq import Queue
+from rq.job import Retry
 
 
 def redis_url() -> str:
@@ -30,9 +31,15 @@ def stable_job_id(*parts: str) -> str:
     return hashlib.sha256(raw).hexdigest()[:32]
 
 
-def enqueue_job(func: Callable[..., Any], *, job_id: str, kwargs: dict[str, Any]) -> str:
+def enqueue_job(
+    func: Callable[..., Any],
+    *,
+    job_id: str,
+    kwargs: dict[str, Any],
+    retry: Retry | None = None,
+) -> str:
     q = get_queue()
-    job = q.enqueue(func, kwargs=kwargs, job_id=job_id)
+    job = q.enqueue(func, kwargs=kwargs, job_id=job_id, retry=retry)
     return job.id
 
 
@@ -44,12 +51,15 @@ def enqueue_ping() -> str:
 
 
 def enqueue_eval_span(trace_id: str, span_id: str) -> str:
-    """Queue eval job: worker loads span and runs eval service (placeholder until judge)."""
+    """Queue groundedness eval: worker loads span from DB and runs LLM judge (or skipped/error rows if misconfigured)."""
     from queues.jobs import eval_span_job
 
     jid = stable_job_id("eval_span", "groundedness", "v1", trace_id, span_id)
+    # Transient OpenAI/network failures: re-raised from judge; RQ retries with backoff.
+    retry = Retry(max=5, interval=[10, 30, 60, 120, 300])
     return enqueue_job(
         eval_span_job,
         job_id=jid,
         kwargs={"trace_id": trace_id, "span_id": span_id},
+        retry=retry,
     )

@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 import os
-
 from rq import Worker
 
 from queues.client import get_redis, queue_name
