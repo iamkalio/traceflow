@@ -1,3 +1,5 @@
+# Stack for ingest + async evals:
+#   API enqueues jobs to Redis; the worker consumes them and calls the groundedness judge (needs OPENAI_API_KEY).
 services:
   postgres:
     image: postgres:16-alpine
@@ -36,12 +38,30 @@ services:
 
   api:
     build: .
+    env_file:
+      - .env.docker
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+psycopg://traceflow:traceflow@postgres:5432/traceflow
-      REDIS_URL: redis://redis:6379/0
-      EVAL_QUEUE_NAME: eval
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    env_file:
+      - .env.docker
+    restart: unless-stopped
+    command:
+      [
+        "sh",
+        "-c",
+        "alembic -c alembic.ini upgrade head && python3 -m traceflow_jobs.worker",
+      ]
+    environment:
       PYTHONUNBUFFERED: "1"
     depends_on:
       postgres:
