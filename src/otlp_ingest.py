@@ -113,11 +113,10 @@ def bytes_to_hex(b: bytes) -> str:
     return b.hex() if b else ""
 
 
-def _nano_to_rfc3339_utc(nano: int, fallback: datetime) -> str:
-    if not nano:
-        dt = fallback if fallback.tzinfo else fallback.replace(tzinfo=timezone.utc)
-    else:
-        dt = datetime.fromtimestamp(nano / 1e9, tz=timezone.utc)
+def _nano_to_rfc3339_utc(nano: int) -> str:
+    # 0 ns since epoch is valid (1970-01-01); do not use `not nano`.
+    # OTLP uses uint64 with no proto3 presence, so unset spans also surface as 0.
+    dt = datetime.fromtimestamp(nano / 1e9, tz=timezone.utc)
     s = dt.isoformat(timespec="milliseconds")
     if s.endswith("+00:00"):
         return s[:-6] + "Z"
@@ -305,7 +304,6 @@ def normalize_span(
     span: Span,
     resource_attrs: dict[str, Any],
     span_index: dict[str, dict[str, Any]],
-    ingestion_time: datetime,
 ) -> LLMEventNormalized | None:
     span_attrs = key_values_to_map(list(span.attributes))
     parent_hex = bytes_to_hex(span.parent_span_id)
@@ -343,7 +341,7 @@ def normalize_span(
 
     resource_obj = _resource_subset(resource_attrs)
 
-    created = _nano_to_rfc3339_utc(span.start_time_unix_nano, ingestion_time)
+    created = _nano_to_rfc3339_utc(span.start_time_unix_nano)
 
     # Default status for legacy if unset
     status = core.get("status")
@@ -373,20 +371,14 @@ def normalize_span(
     return LLMEventNormalized.model_validate(raw)
 
 
-def export_request_to_llm_events(
-    req: ExportTraceServiceRequest,
-    ingestion_time: datetime | None = None,
-) -> list[LLMEventNormalized]:
-    now = ingestion_time or datetime.now(timezone.utc)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+def export_request_to_llm_events(req: ExportTraceServiceRequest) -> list[LLMEventNormalized]:
     span_index = _build_span_index(req)
     out: list[LLMEventNormalized] = []
     for rs in req.resource_spans:
         resource_attrs = key_values_to_map(list(rs.resource.attributes))
         for ss in rs.scope_spans:
             for span in ss.spans:
-                ev = normalize_span(span, resource_attrs, span_index, now)
+                ev = normalize_span(span, resource_attrs, span_index)
                 if ev is not None:
                     out.append(ev)
     return out
