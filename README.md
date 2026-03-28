@@ -56,7 +56,9 @@ client = OpenAI()
 docker compose up --build
 ```
 
-Or run the backend locally: `cd src && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`.
+This starts **Postgres**, **Redis**, the **API** (`:8000`), and a **worker** that processes eval jobs. For **groundedness** evals to finish, all four must be running: the API stores traces and enqueues work; the worker reads from Redis, loads spans from Postgres, and writes `eval_results` (set `OPENAI_API_KEY` in `.env.docker` next to `docker-compose.yml`, or export it before `docker compose up`).
+
+Or run the backend locally: `cd src && pip install -r requirements.txt && uvicorn main:app --reload --port 8000` — then start Redis, run `python3 -m traceflow_jobs.worker` with the same `DATABASE_URL` / `REDIS_URL` / `OPENAI_API_KEY` as the API.
 
 **4. Example** — `example/` has a minimal example; run `python3 app.py` with the dashboard running and `OPENAI_API_KEY` set.
 

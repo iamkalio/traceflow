@@ -9,6 +9,8 @@ COPY src /app/src
 COPY app /app/app
 
 ENV PYTHONPATH=/app/src
+WORKDIR /app/src
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic -c /app/src/alembic.ini upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir /app/src"]
+# CWD must be /app/src so alembic.ini script_location=migrations resolves to /app/src/migrations
+CMD ["sh", "-c", "alembic -c alembic.ini upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]

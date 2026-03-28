@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TraceIn(BaseModel):
@@ -96,3 +96,163 @@ class LLMEventNormalized(BaseModel):
             except ValueError:
                 return None
         return None
+
+
+class EvalResultOut(BaseModel):
+    """One eval row for API responses (e.g. GET /v1/traces/{trace_id}/evals)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    trace_id: str
+    span_id: str
+    eval_name: str
+    eval_version: str
+    score: float | None
+    label: str
+    reason: str | None
+    details: dict[str, Any]
+    created_at: datetime
+
+
+class EvalRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    group_id: int | None = None
+    trace_id: str
+    span_id: str | None
+    status: str
+    evaluator_type: str
+    evaluator_version: str
+    score: float | None = None
+    label: str | None = None
+    reasoning: str | None = None
+    context: dict[str, Any] | None = None
+    error: str | None = None
+    latency_ms: int | None = None
+    cost_usd: float | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class FailureTypeCountOut(BaseModel):
+    failure_type: str
+    count: int
+
+
+class InsightsSummaryOut(BaseModel):
+    """Aggregates over recent eval_runs (global insights)."""
+
+    sample_size: int
+    completed_with_score: int
+    avg_score: float | None
+    good_count: int
+    borderline_count: int
+    bad_count: int
+    good_pct: float | None
+    borderline_pct: float | None
+    bad_pct: float | None
+    total_eval_cost_usd: float
+    top_failure_types: list[FailureTypeCountOut]
+
+
+class WorstRegressionOut(BaseModel):
+    """Lowest delta_score first (most negative groundedness drift)."""
+
+    trace_id: str
+    delta_score: float | None = None
+    verdict: str = ""
+    regression_compare_score: float | None = None
+
+
+class EvalRunGroupDetailOut(BaseModel):
+    """One regression / batch group plus rollups and child runs."""
+
+    id: int
+    name: str
+    status: str
+    total_jobs: int
+    tenant_id: str | None
+    created_at: datetime
+    avg_score: float | None
+    good_count: int
+    borderline_count: int
+    bad_count: int
+    good_pct: float | None
+    borderline_pct: float | None
+    bad_pct: float | None
+    total_eval_cost_usd: float
+    completed_jobs: int
+    top_failure_types: list[FailureTypeCountOut]
+    eval_runs: list[EvalRunOut]
+    pct_improved: float | None = None
+    pct_regressed: float | None = None
+    pct_unchanged: float | None = None
+    avg_delta_score: float | None = None
+    worst_regressions: list[WorstRegressionOut] = Field(default_factory=list)
+    regression_summary: str = ""
+
+
+class RegressionRunIn(BaseModel):
+    n: int = Field(ge=1, le=500, description="Compare the N most recently active traces (vs prior eval snapshot).")
+    eval_name: str = "regression_compare_v1"
+
+
+class RegressionRunQueuedOut(BaseModel):
+    status: str
+    group_id: int
+    eval_run_ids: list[int]
+
+
+class TraceListItemOut(BaseModel):
+    """One row per trace_id for list views."""
+
+    trace_id: str
+    name: str | None = None
+    input: str | None = None
+    output: str | None = None
+    annotations: int | None = None  # legacy (eval_results count); will be replaced by eval_status
+    eval_status: str | None = None  # pending | queued | running | completed | failed | skipped
+    eval_score: float | None = None
+    eval_label: str | None = None
+    start_time: datetime | None = None
+    latency_ms: int | None = None
+    first_seen: datetime
+    last_seen: datetime
+    span_count: int
+    status: str
+    total_tokens: int | None
+    total_cost_usd: float | None
+
+
+class TraceListResponse(BaseModel):
+    items: list[TraceListItemOut]
+    next_cursor: str | None = None
+
+
+class TraceSpanOut(BaseModel):
+    """One span row for trace detail views."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    trace_id: str
+    span_id: str
+    parent_span_id: str | None
+    kind: str
+    event_time: datetime
+    model: str
+    name: str
+    prompt: str | None
+    completion: str | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    total_tokens: int | None
+    cost_usd: float | None
+    latency_ms: int | None
+    status: str
+    error: str | None
+    context: dict | None
+    attributes: dict
+    tenant_id: str | None

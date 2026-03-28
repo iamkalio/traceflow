@@ -16,8 +16,13 @@ from db.repository import (
 from db.session import SessionLocal
 from services.evals.groundedness_eval import run_groundedness_span_eval
 from services.evals.llm_groundedness_judge import is_transient_openai_error
+from services.evals.regression_compare_eval import run_regression_compare_span_eval
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_evaluator_type(raw: str | None) -> str:
+    return (raw or "").strip().lower()
 
 
 def ping_job(msg: str = "ping") -> str:
@@ -77,14 +82,27 @@ def eval_run_job(eval_run_id: int, openai_api_key: str) -> str:
             span_id = spans[-1].span_id
             update_eval_run_span_id(session, eval_run_id, span_id)
 
-        etype = (run.evaluator_type or "").lower()
-        if etype in ("groundedness", "groundedness_v1"):
+        etype = _normalize_evaluator_type(run.evaluator_type)
+        is_groundedness = etype.startswith("groundedness")
+        is_regression = etype.startswith("regression_compare")
+        if is_groundedness:
             outcome, detail = run_groundedness_span_eval(
                 session, trace_id, span_id, openai_api_key=api_key
             )
+        elif is_regression:
+            outcome, detail = run_regression_compare_span_eval(
+                session, trace_id, span_id, eval_run_id, openai_api_key=api_key
+            )
         else:
             set_eval_run_failed(
-                session, eval_run_id, error=f"Unknown evaluator_type: {run.evaluator_type!r}"
+                session,
+                eval_run_id,
+                error=(
+                    f"Unknown evaluator_type: {run.evaluator_type!r}. "
+                    "Supported: groundedness*, regression_compare*. "
+                    "If you use regression batches, redeploy the RQ worker from the same image/commit as the API "
+                    "so eval_run_job includes the regression_compare branch."
+                ),
             )
             return "ok"
 
@@ -97,14 +115,58 @@ def eval_run_job(eval_run_id: int, openai_api_key: str) -> str:
 
         kind = detail.get("kind")
         if kind == "completed":
+            if is_regression and not detail.get("regression_baseline_only"):
+                extra_ctx: dict[str, object] = {
+                    "snapshot_input": str(detail.get("snapshot_input") or "")[:50_000],
+                    "snapshot_output": str(detail.get("snapshot_output") or "")[:50_000],
+                    "eval_kind": "regression_compare",
+                    "prompt_improvement": "",
+                    "context_improvement": "",
+                    "failure_type": "",
+                    "suggested_fix": "",
+                }
+                if detail.get("previous_eval_run_id") is not None:
+                    extra_ctx["previous_eval_run_id"] = detail["previous_eval_run_id"]
+                if detail.get("previous_score") is not None:
+                    extra_ctx["previous_score"] = detail["previous_score"]
+                if detail.get("current_score") is not None:
+                    extra_ctx["current_score"] = detail["current_score"]
+                if detail.get("delta_score") is not None:
+                    extra_ctx["delta_score"] = detail["delta_score"]
+                extra_ctx["verdict"] = str(detail.get("label") or "")
+                extra_ctx["regression_compare_score"] = detail.get("score")
+            else:
+                extra_ctx = {
+                    "prompt_improvement": str(detail.get("prompt_improvement") or ""),
+                    "context_improvement": str(detail.get("context_improvement") or ""),
+                    "failure_type": str(detail.get("failure_type") or ""),
+                    "suggested_fix": str(detail.get("suggested_fix") or ""),
+                    "snapshot_input": str(detail.get("snapshot_input") or "")[:50_000],
+                    "snapshot_output": str(detail.get("snapshot_output") or "")[:50_000],
+                }
+                # Groundedness-scale score for this span (delta vs prior uses this across runs).
+                if detail.get("score") is not None and not is_regression:
+                    extra_ctx["current_score"] = detail.get("score")
+                if is_regression and detail.get("regression_baseline_only"):
+                    extra_ctx["eval_kind"] = "regression_baseline_capture"
+                    extra_ctx["regression_note"] = (
+                        "No prior eval output to compare yet. Groundedness ran to capture a baseline snapshot; "
+                        "run regression again after outputs change to measure improved/regressed/unchanged."
+                    )
+                    if detail.get("score") is not None:
+                        extra_ctx["current_score"] = detail.get("score")
+                    extra_ctx["verdict"] = "baseline_capture"
+                    extra_ctx["previous_score"] = None
+                    extra_ctx["delta_score"] = None
             set_eval_run_completed(
                 session,
                 eval_run_id,
                 score=detail.get("score"),
                 label=str(detail.get("label") or ""),
                 reasoning=str(detail.get("reason") or ""),
-                latency_ms=None,
-                cost_usd=None,
+                latency_ms=detail.get("latency_ms"),
+                cost_usd=detail.get("cost_usd"),
+                extra_context=extra_ctx,
             )
         elif kind == "skipped":
             set_eval_run_skipped(

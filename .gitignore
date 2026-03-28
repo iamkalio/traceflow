@@ -25,6 +25,7 @@ wheels/
 venv/
 ENV/
 
+
 # IDE
 .idea/
 .vscode/
@@ -56,3 +57,7 @@ Thumbs.db
 
 # docs
 docs/
+# Env
+.env
+.env.local
+.env.docker
