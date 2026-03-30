@@ -95,7 +95,7 @@ Or run the backend locally: `cd src && pip install -r requirements.txt && uvicor
 
 ## Dashboard
 
-![Traceflow dashboard](assets/dashboard.png)
+![Traceflow dashboard](assets/dashboard1.png)
 
 ## Trace details
 
