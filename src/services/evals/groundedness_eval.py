@@ -68,6 +68,7 @@ def run_groundedness_span_eval(
         else "(No retrieval context was recorded for this span. "
         "Judge conservatively: factual claims cannot be verified without context.)"
     )
+    question_text = (row.prompt or "").strip() or "(no user question captured)"
     completion_text = (row.completion or "").strip() or "(empty)"
 
     if not (openai_api_key or "").strip() and not os.environ.get("OPENAI_API_KEY"):
@@ -91,6 +92,7 @@ def run_groundedness_span_eval(
 
     try:
         judge = call_groundedness_judge(
+            question=question_text,
             context=context_block,
             response=completion_text,
             api_key=(openai_api_key.strip() if openai_api_key else None),

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class GroundednessJudgeOutput(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
-    label: Literal["grounded", "partially_grounded", "not_grounded"]
+    label: Literal["grounded", "partially_grounded", "not_grounded", "insufficient_context"]
     reason: str = Field(min_length=1, max_length=4000)
     prompt_improvement: str = ""
     context_improvement: str = ""
@@ -85,24 +85,35 @@ def is_transient_openai_error(exc: BaseException) -> bool:
     return False
 
 
-def build_groundedness_prompt(*, context: str, response: str) -> str:
-    return f"""You are an evaluator for AI-generated responses.
+def build_groundedness_prompt(*, question: str, context: str, response: str) -> str:
+    return f"""You are an evaluator assessing whether an AI response is faithful to the provided context.
 
-Your task is to determine whether the response is grounded in the provided context.
+## Definitions
+- grounded: every substantive claim in the response is directly supported by or inferable from the context.
+- partially_grounded: some claims are supported; others are absent from or contradicted by the context.
+- not_grounded: the response contradicts the context, or makes substantive claims with no basis in it.
+- insufficient_context: the context is too thin/irrelevant to judge the response reliably.
 
-Rules:
-- Only use the provided context to judge correctness.
-- If the response contains information not present in the context, mark it as ungrounded or partially_grounded as appropriate.
-- If partially grounded, reflect that in the score.
+Note: ignore universally known facts (e.g. "water boils at 100°C") — only flag claims specific to this domain/query.
 
-Return JSON ONLY with keys score, label, reason, prompt_improvement, context_improvement, failure_type, suggested_fix and no other text:
-- score: number from 0.0 to 1.0
-- label: one of grounded, partially_grounded, not_grounded
-- reason: short explanation of the verdict
-- prompt_improvement: one or two sentences on how to improve the model/system prompt or instructions (or empty string)
-- context_improvement: one or two sentences on how to improve retrieval/context quality for this kind of query (or empty string)
-- failure_type: short snake_case category for dashboards (e.g. not_grounded_in_context, partial_grounding, unsupported_claim, insufficient_context, other). If label is grounded, use ok or grounded.
+## Score guidance
+- grounded: 0.85–1.0
+- partially_grounded: 0.4–0.84
+- not_grounded: 0.0–0.39
+- insufficient_context: 0.0–0.39 (use when context is missing/irrelevant rather than when the response is wrong)
+
+## Task
+Given the question, context, and response below, return JSON ONLY with these keys and no other text:
+- score: float 0.0–1.0
+- label: one of grounded, partially_grounded, not_grounded, insufficient_context
+- reason: 1–2 sentences explaining the verdict, citing specific claims if partially/not grounded
+- prompt_improvement: how to improve the system prompt or instructions (empty string if not applicable)
+- context_improvement: how to improve retrieval quality for this query type (empty string if not applicable)
+- failure_type: snake_case category — one of: ok, partial_grounding, unsupported_claim, contradiction, insufficient_context, other
 - suggested_fix: one concise sentence on what to change (prompt, retrieval, or product behavior), or empty string
+
+Question:
+{question}
 
 Context:
 {context}
@@ -130,7 +141,7 @@ def _estimate_chat_cost_usd(*, model: str, prompt_tokens: int, completion_tokens
 
 
 def call_groundedness_judge(
-    *, context: str, response: str, api_key: str | None = None
+    *, question: str, context: str, response: str, api_key: str | None = None
 ) -> GroundednessJudgeResult:
     from openai import OpenAI
 
@@ -139,7 +150,7 @@ def call_groundedness_judge(
         raise RuntimeError("OPENAI_API_KEY is not set")
 
     model = os.environ.get("OPENAI_EVAL_MODEL", "gpt-4o-mini")
-    prompt = build_groundedness_prompt(context=context, response=response)
+    prompt = build_groundedness_prompt(question=question, context=context, response=response)
     client = OpenAI(api_key=resolved)
 
     last_raw: str | None = None
