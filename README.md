@@ -8,14 +8,32 @@
 </p>
 
 <p align="center">
-  AI observability: trace your LLM calls and view them in a dashboard. Built for local and Docker use, with SQLite so you can run everything without a separate database.
+  AI observability + evals: ingest OTLP traces for LLM calls, run LLM-as-a-judge evaluations, and ship a regression workflow that answers “did we get better or worse?” across recent traces.
 </p>
 
 ---
 
-- **SDK** — Instrument your app with one line; captures prompt, completion, tokens, cost, latency, and caller name. Sends traces to your dashboard.
-- **Dashboard** — Trace table (resizable columns, filters), monitoring charts (count, cost, error rate, latency), and a detail panel per trace.
-- **Local-first** — No ClickHouse or Postgres required. SQLite + optional Docker.
+## What this repo is
+
+Traceflow is a local-first stack for **LLM tracing and quality**:
+
+- **Trace ingest (OTLP/HTTP)**: send OpenTelemetry traces for LLM calls (prompt, completion, latency, tokens, cost, status).
+- **Dashboard (Next.js)**: browse traces/spans, inspect inputs/outputs/context, track spend, and run evals from the UI.
+- **LLM-as-a-judge evals**: run **groundedness** scoring against retrieved context (question + context + response → score/label/reasoning).
+- **Regression**: pick the last \(N\) traces, re-run evals, compare against the previous snapshot, and roll up a batch summary (improved/regressed/unchanged).
+
+## Why it’s useful
+
+- **Catch quality drift** before it hits users (regressions/improvements over time).
+- **Debug faster** with full trace context (inputs, outputs, retrieval context, latency, cost).
+- **Production-shaped, demo-friendly**: one docker compose brings up API, UI, Postgres, Redis, and an async worker.
+
+## Features
+
+- **SDK**: instrument with one line; captures prompt, completion, tokens, cost, latency, and caller name; exports OTLP.
+- **Trace explorer**: table + filters + per-trace detail (spans, attributes, errors).
+- **Evals**: groundedness judge returns structured JSON (score/label/reasoning + improvements).
+- **Regression batches**: last \(N\) traces → compare vs prior → per-trace deltas + human-readable system summary.
 
 ## Installation
 
@@ -25,6 +43,8 @@ pip install traceflow-ai[openai]
 
 ## Quick start
 
+For full local setup (Docker + non-Docker), see [`SETUP.md`](SETUP.md).
+
 **1. Run the dashboard**
 
 Using the image from [Docker Hub](https://hub.docker.com/r/iamkalio/traceflow-dashboard):
@@ -33,7 +53,7 @@ Using the image from [Docker Hub](https://hub.docker.com/r/iamkalio/traceflow-da
 docker run -p 8000:8000 iamkalio/traceflow-dashboard
 ```
 
-Open **http://localhost:8000**. The dashboard (API + UI) receives traces from the SDK and shows them in a simple UI (traces, spans, cost, latency). Backend is FastAPI with SQLite; no external database.
+Open **http://localhost:8000**. The dashboard (API + UI) receives traces from the SDK and shows them in a simple UI (traces, spans, cost, latency).
 
 **2. In your app**
 
@@ -56,7 +76,7 @@ client = OpenAI()
 docker compose up --build
 ```
 
-This starts **Postgres**, **Redis**, the **API** (`:8000`), and a **worker** that processes eval jobs. For **groundedness** evals to finish, all four must be running: the API stores traces and enqueues work; the worker reads from Redis, loads spans from Postgres, and writes `eval_results` (set `OPENAI_API_KEY` in `.env.docker` next to `docker-compose.yml`, or export it before `docker compose up`).
+This starts **Postgres**, **Redis**, the **API** (`:8000`), the **UI**, and a **worker** that processes eval jobs. For evals/regression to finish, all four must be running: the API stores traces and enqueues work; the worker reads from Redis, loads spans from Postgres, and writes eval results (set `OPENAI_API_KEY` in `.env.docker` next to `docker-compose.yml`, or export it before `docker compose up`).
 
 Or run the backend locally: `cd src && pip install -r requirements.txt && uvicorn main:app --reload --port 8000` — then start Redis, run `python3 -m traceflow_jobs.worker` with the same `DATABASE_URL` / `REDIS_URL` / `OPENAI_API_KEY` as the API.
 
@@ -67,17 +87,20 @@ Or run the backend locally: `cd src && pip install -r requirements.txt && uvicor
 | Part        | Description                    |
 | ----------- | ------------------------------ |
 | `sdk/`      | **traceflow-ai** — PyPI package |
-| `src/`      | FastAPI + SQLite (API + serves UI) |
-| `app/`      | Dashboard static assets (HTML/CSS/JS) |
+| `src/`      | FastAPI API + worker + OTLP ingest (Postgres + Redis) |
+| `app/`      | Dashboard (Next.js) |
 | `example/`  | Example app using the SDK      |
-| `docs/`     | Specs, roadmap, architecture   |
 
 ---
 
-Docs: [sdk/README.md](sdk/README.md) · [docs/](docs/)
-
 ## Dashboard
 
-<p align="center">
-  <img src="assets/dashboard.png" alt="Traceflow dashboard" width="800">
-</p>
+![Traceflow dashboard](assets/dashboard.png)
+
+## Trace details
+
+![Trace details](assets/trace-details.png)
+
+## LLM-as-a-judge
+
+![LLM-as-a-judge](assets/llm-as-a-judge.png)
