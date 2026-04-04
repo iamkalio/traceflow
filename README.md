@@ -78,18 +78,17 @@ docker compose up --build
 
 This starts **Postgres**, **Redis**, the **API** (`:8000`), the **UI**, and a **worker** that processes eval jobs. For evals/regression to finish, all four must be running: the API stores traces and enqueues work; the worker reads from Redis, loads spans from Postgres, and writes eval results (set `OPENAI_API_KEY` in `.env.docker` next to `docker-compose.yml`, or export it before `docker compose up`).
 
-Or run the backend locally: `cd src && pip install -r requirements.txt && uvicorn main:app --reload --port 8000` — then start Redis, run `python3 -m traceflow_jobs.worker` with the same `DATABASE_URL` / `REDIS_URL` / `OPENAI_API_KEY` as the API.
+Or run the backend locally: `cd backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000` — then start Redis, run `python3 -m modules.jobs.worker` from `backend/` with the same `DATABASE_URL` / `REDIS_URL` / `OPENAI_API_KEY` as the API.
 
-**4. Example** — `example/` has a minimal example; run `python3 app.py` with the dashboard running and `OPENAI_API_KEY` set.
+**4. Example** — `sdk/python/` has a minimal example; run `python3 app.py` with the dashboard running and `OPENAI_API_KEY` set.
 
 ## Project
 
-| Part        | Description                    |
-| ----------- | ------------------------------ |
-| `sdk/`      | **traceflow-ai** — PyPI package |
-| `src/`      | FastAPI API + worker + OTLP ingest (Postgres + Redis) |
-| `app/`      | Dashboard (Next.js) |
-| `example/`  | Example app using the SDK      |
+| Part          | Description |
+| ------------- | ----------- |
+| `backend/`    | Modular monolith: FastAPI, domain modules (`modules/*`), OTLP ingest, RQ worker |
+| `app/`        | Dashboard (Next.js) |
+| `sdk/python/` | Example using **traceflow-ai** from PyPI against a local API |
 
 ---
 
