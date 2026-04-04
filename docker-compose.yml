@@ -59,7 +59,7 @@ services:
       [
         "sh",
         "-c",
-        "alembic -c alembic.ini upgrade head && python3 -m traceflow_jobs.worker",
+        "alembic -c alembic.ini upgrade head && python3 -m modules.jobs.worker",
       ]
     environment:
       PYTHONUNBUFFERED: "1"

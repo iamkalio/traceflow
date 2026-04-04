@@ -1,5 +1,6 @@
-src/__pycache__
-src/data
+backend/__pycache__
+backend/data
+backend/.venv
 *.pyc
 .venv
 venv

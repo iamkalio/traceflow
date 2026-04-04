@@ -46,7 +46,7 @@ docker compose up -d postgres redis
 From repo root:
 
 ```bash
-cd src
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -62,14 +62,14 @@ uvicorn main:app --reload --port 8000
 In a second terminal (same venv):
 
 ```bash
-cd src
+cd backend
 source .venv/bin/activate
 
 export DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/traceflow"
 export REDIS_URL="redis://localhost:6379/0"
 export OPENAI_API_KEY="sk-..."
 
-python3 -m traceflow_jobs.worker
+python3 -m modules.jobs.worker
 ```
 
 ### 4) UI (Next.js)
@@ -89,9 +89,9 @@ Open `http://localhost:3000`.
 Post two realistic demo traces (OTLP protobuf) to the ingest endpoint:
 
 ```bash
-cd src
+cd backend
 pip install httpx opentelemetry-proto
-BASE_URL=http://127.0.0.1:8000 python3 post_demo_otlp.py
+BASE_URL=http://127.0.0.1:8000 python3 scripts/post_demo_traces.py
 ```
 
 Then go to **Traces** in the UI and run the **groundedness** eval for either trace.
