@@ -2,6 +2,8 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from core.config import frontend_url
+from modules.auth.router import router as auth_router
 from modules.evaluation.router import router as evaluation_router
 from modules.ingestion.router import router as ingestion_router
 from modules.query.router import router as query_router
@@ -10,8 +12,15 @@ from ws.traces import trace_ws_manager
 
 app = FastAPI(title="Traceflow OTLP Ingest", version="0.1.0")
 app.add_middleware(RequestTracingMiddleware)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[frontend_url(), "http://localhost:3000", "http://localhost:3001"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+app.include_router(auth_router)
 app.include_router(ingestion_router)
 app.include_router(query_router)
 app.include_router(evaluation_router)

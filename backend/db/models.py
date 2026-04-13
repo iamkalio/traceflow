@@ -7,6 +7,22 @@ from sqlalchemy.orm import Mapped, mapped_column
 from db.base import Base
 
 
+class User(Base):
+    """GitHub OAuth user. tenant_id = str(github_id) links to traces/eval_runs."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True, index=True)
+    github_login: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    tenant_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class Trace(Base):
     """One row per OTLP span ingested as an LLM event (idempotent on trace_id + span_id)."""
 
