@@ -130,9 +130,14 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
-  
+
+  // GitHub OAuth ID stored as string — used as tenant_id to scope traces/evals
+  tenantId      String?
+
   // Tenant relationships
   organizations OrganizationUser[]
+
+  @@index([tenantId])
 }
 
 model VerificationToken {

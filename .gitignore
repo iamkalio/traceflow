@@ -12,6 +12,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# Allow the Next.js app's src/lib — only Python lib/ dirs should be excluded
+!app/src/lib/
 parts/
 sdist/
 var/
