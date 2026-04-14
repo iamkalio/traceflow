@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model alembic_version {
+  version_num String @id(map: "alembic_version_pkc") @db.VarChar(128)
+}
+
+model eval_results {
+  id           BigInt   @id @default(autoincrement())
+  trace_id     String   @db.VarChar(64)
+  span_id      String   @db.VarChar(64)
+  eval_name    String   @db.VarChar(128)
+  eval_version String   @default("v1") @db.VarChar(64)
+  score        Float?
+  label        String   @default("") @db.VarChar(64)
+  reason       String?
+  details      Json     @default("{}")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([trace_id, span_id, eval_name, eval_version], map: "uq_eval_results_span_eval")
+  @@index([span_id], map: "ix_eval_results_span_id")
+  @@index([trace_id], map: "ix_eval_results_trace_id")
+}
+
+model eval_run_groups {
+  id         BigInt      @id @default(autoincrement())
+  name       String      @db.VarChar(256)
+  total_jobs Int
+  status     String      @default("running") @db.VarChar(32)
+  tenant_id  String?     @db.VarChar(255)
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  eval_runs  eval_runs[]
+}
+
+model eval_runs {
+  id                BigInt           @id @default(autoincrement())
+  trace_id          String           @db.VarChar(64)
+  span_id           String?          @db.VarChar(64)
+  tenant_id         String?          @db.VarChar(255)
+  status            String           @db.VarChar(32)
+  evaluator_type    String           @db.VarChar(128)
+  evaluator_version String           @default("v1") @db.VarChar(64)
+  score             Float?
+  label             String?          @db.VarChar(64)
+  reasoning         String?
+  input             String?
+  output            String?
+  context           Json?
+  latency_ms        Int?
+  cost_usd          Float?
+  error             String?
+  created_at        DateTime         @default(now()) @db.Timestamptz(6)
+  started_at        DateTime?        @db.Timestamptz(6)
+  completed_at      DateTime?        @db.Timestamptz(6)
+  group_id          BigInt?
+  eval_run_groups   eval_run_groups? @relation(fields: [group_id], references: [id], onUpdate: NoAction, map: "fk_eval_runs_group_id")
+
+  @@index([group_id], map: "ix_eval_runs_group_id")
+  @@index([span_id], map: "ix_eval_runs_span_id")
+  @@index([tenant_id], map: "ix_eval_runs_tenant_id")
+  @@index([trace_id], map: "ix_eval_runs_trace_id")
+}
+
+model traces {
+  id                BigInt   @id @default(autoincrement())
+  trace_id          String   @db.VarChar(64)
+  span_id           String   @db.VarChar(64)
+  parent_span_id    String?  @db.VarChar(64)
+  kind              String   @default("llm") @db.VarChar(32)
+  event_time        DateTime @db.Timestamptz(6)
+  model             String   @default("") @db.VarChar(512)
+  name              String   @default("") @db.VarChar(1024)
+  prompt            String?
+  completion        String?
+  prompt_tokens     Int?
+  completion_tokens Int?
+  total_tokens      Int?
+  cost_usd          Float?
+  latency_ms        Int?
+  status            String   @default("success") @db.VarChar(64)
+  error             String?
+  attributes        Json     @default("{}")
+  tenant_id         String?  @db.VarChar(255)
+  ingested_at       DateTime @default(now()) @db.Timestamptz(6)
+  context           Json?
+
+  @@unique([trace_id, span_id], map: "uq_traces_trace_span")
+  @@index([context], map: "ix_traces_context", type: Gin)
+  @@index([tenant_id], map: "ix_traces_tenant_id")
+  @@index([trace_id], map: "ix_traces_trace_id")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // GitHub OAuth ID stored as string — used as tenant_id to scope traces/evals
+  tenantId      String?
+
+  // Tenant relationships
+  organizations OrganizationUser[]
+
+  @@index([tenantId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Minimal Tenant/Organization setup
+model Organization {
+  id        String             @id @default(cuid())
+  name      String
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  users     OrganizationUser[]
+}
+
+model OrganizationUser {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("MEMBER") // "OWNER", "ADMIN", "MEMBER"
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}

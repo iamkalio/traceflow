@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, ClipboardPen, Database, Lightbulb, Settings } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { Activity, BarChart3, ClipboardPen, Database, Lightbulb, Settings, LogOut } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -65,6 +66,19 @@ export function AppShell({
                 <NavItem href="/settings" active={active === "settings"} icon={<Settings className="size-4" />}>
                   Settings
                 </NavItem>
+              </div>
+
+              <div className="pt-8">
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    "w-full justify-start gap-2 font-medium text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <LogOut className="size-4" />
+                  <span>Sign Out</span>
+                </button>
               </div>
             </nav>
           </aside>
