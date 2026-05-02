@@ -13,6 +13,10 @@ from db.repository import (
     trace_has_any_span,
 )
 from db.session import SessionLocal
+from modules.cache import get_cache
+from modules.cache.decorators import cache_aside
+from modules.cache.keys import eval_results_key, insights_summary_key
+from modules.cache.ttl import INSIGHTS_TTL_S, jittered_ttl
 from modules.evaluation.schemas import (
     EvalRunGroupDetailOut,
     EvalRunOut,
@@ -33,10 +37,17 @@ async def run_trace_eval(
     payload: dict,
     x_openai_api_key: str | None = Header(None, alias="X-OpenAI-API-Key"),
 ) -> dict:
-    """
-    Queue an eval run. Pass the OpenAI API key in the ``X-OpenAI-API-Key`` header
-    (browser stores it in localStorage; the server does not persist keys).
-    The key is sent to the worker only inside the RQ job payload until the job finishes.
+    """Queue an eval run.
+
+    After successfully queuing, we proactively invalidate the eval results
+    cache for this trace.  The eval hasn't completed yet (it runs in the
+    background), but the cache entry is now stale by definition — the user
+    just kicked off new work.  Deleting it here means the next read will
+    fetch the updated state from the DB rather than serving a stale "no
+    results yet" entry.
+
+    We do NOT invalidate the insights summary here because the eval hasn't
+    run yet; insights will self-heal once the eval completes via TTL.
     """
     from rq.job import Retry
 
@@ -72,6 +83,14 @@ async def run_trace_eval(
             retry=retry,
             description=safe_rq_description,
         )
+
+        # Invalidate the eval results cache for this trace so the next read
+        # fetches fresh data instead of serving the stale "pending" state.
+        # We delete both the named evaluator slot and the "all evals" slot.
+        cache = get_cache()
+        cache.delete(eval_results_key(trace_id, eval_name))
+        cache.delete(eval_results_key(trace_id, None))
+
         return {"status": "queued", "eval_run_id": run.id}
     finally:
         session.close()
@@ -81,30 +100,48 @@ async def run_trace_eval(
 async def insights_summary(
     limit: int = Query(default=100, ge=1, le=500, description="Recent eval runs to include"),
 ) -> InsightsSummaryOut:
-    """Rollups for the Insights page: score mix, failure types, eval spend."""
-    session = SessionLocal()
-    try:
-        raw = compute_eval_insights_summary(session, limit=limit)
-        return InsightsSummaryOut(
-            sample_size=raw["sample_size"],
-            completed_with_score=raw["completed_with_score"],
-            avg_score=raw["avg_score"],
-            good_count=raw["good_count"],
-            borderline_count=raw["borderline_count"],
-            bad_count=raw["bad_count"],
-            good_pct=raw["good_pct"],
-            borderline_pct=raw["borderline_pct"],
-            bad_pct=raw["bad_pct"],
-            total_eval_cost_usd=raw["total_eval_cost_usd"],
-            top_failure_types=[FailureTypeCountOut(**x) for x in raw["top_failure_types"]],
-        )
-    finally:
-        session.close()
+    """Rollups for the Insights page: score mix, failure types, eval spend.
+
+    This query aggregates over potentially thousands of eval_results rows.
+    Caching it with a 60-second TTL (INSIGHTS_TTL_S) is a meaningful
+    optimisation — the Insights page can be loaded many times a minute and
+    the underlying data changes slowly relative to trace ingestion.
+    """
+    key = insights_summary_key(limit=limit)
+
+    def _compute() -> dict:
+        session = SessionLocal()
+        try:
+            raw = compute_eval_insights_summary(session, limit=limit)
+            response = InsightsSummaryOut(
+                sample_size=raw["sample_size"],
+                completed_with_score=raw["completed_with_score"],
+                avg_score=raw["avg_score"],
+                good_count=raw["good_count"],
+                borderline_count=raw["borderline_count"],
+                bad_count=raw["bad_count"],
+                good_pct=raw["good_pct"],
+                borderline_pct=raw["borderline_pct"],
+                bad_pct=raw["bad_pct"],
+                total_eval_cost_usd=raw["total_eval_cost_usd"],
+                top_failure_types=[FailureTypeCountOut(**x) for x in raw["top_failure_types"]],
+            )
+            return response.model_dump(mode="json")
+        finally:
+            session.close()
+
+    cached = cache_aside(get_cache(), key, _compute, ttl_s=jittered_ttl(INSIGHTS_TTL_S))
+    return InsightsSummaryOut.model_validate(cached)
 
 
 @router.get("/v1/eval-run-groups/{group_id}", response_model=EvalRunGroupDetailOut)
 async def get_eval_run_group_detail(group_id: int) -> EvalRunGroupDetailOut:
-    """Regression / batch group with aggregate scores and per-trace eval rows."""
+    """Regression / batch group with aggregate scores and per-trace eval rows.
+
+    Not cached: regression group state transitions (queued → running → done)
+    are tracked by the worker and UI polls this endpoint to show progress.
+    Caching would cause stale progress counts and confuse users.
+    """
     session = SessionLocal()
     try:
         raw = summarize_eval_run_group(session, group_id)
@@ -146,9 +183,11 @@ async def run_regression(
     payload: RegressionRunIn,
     x_openai_api_key: str | None = Header(None, alias="X-OpenAI-API-Key"),
 ) -> RegressionRunQueuedOut:
-    """
-    Queue **regression compare** jobs: same RQ entrypoint as single-trace evals (``eval_run_job``), with
-    ``evaluator_type=regression_compare_v1``. Compares current span output to the prior eval snapshot.
+    """Queue regression compare jobs.
+
+    Not cached — this is a write/trigger operation.  After queuing, we
+    invalidate the insights summary because a new regression batch is now
+    in flight and the summary will be stale once jobs start completing.
     """
     from rq.job import Retry
 
@@ -198,6 +237,12 @@ async def run_regression(
                 retry=retry,
                 description=safe_rq_description,
             )
+
+        # Invalidate insights — a regression run represents new eval activity
+        # and the summary will drift as jobs complete.  Deleting it forces the
+        # next load of the Insights page to re-aggregate from fresh data.
+        get_cache().delete(insights_summary_key(limit=100))
+
         return RegressionRunQueuedOut(status="queued", group_id=group.id, eval_run_ids=eval_run_ids)
     finally:
         session.close()

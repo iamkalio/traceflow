@@ -13,6 +13,8 @@ from db.repository import (
     persist_normalized_events,
 )
 from db.session import SessionLocal
+from modules.cache import get_cache
+from modules.cache.keys import insights_summary_key, trace_list_cursor_key
 from modules.ingestion.service import ingest_otlp_body
 from ws.traces import trace_ws_manager
 
@@ -23,9 +25,27 @@ router = APIRouter(tags=["ingestion"])
 
 @router.post("/v1/traces")
 async def otlp_traces_ingest(request: Request) -> list[dict]:
-    """
-    SDK → parse OTLP protobuf → normalize → store in PostgreSQL.
+    """SDK → parse OTLP protobuf → normalize → store in PostgreSQL.
+
     Returns a JSON array of normalized LLM events for this request.
+
+    Cache invalidation
+    ------------------
+    After a successful ingest we delete the "first page, no filters" cache
+    entry for the trace list.  This is the key that the UI's default view
+    hits on every page load, so it's the most important one to keep fresh.
+
+    We can't enumerate every possible filter combination (there are too many),
+    so we:
+      1. Delete the default (unfiltered, cursor=None) key explicitly.
+      2. Rely on TTL (TRACE_LIST_TTL_S = 30s) as the safety net for all other
+         filter combinations.
+
+    In the future, if you add tenant routing, also delete the tenant-specific
+    default key here.
+
+    We do NOT delete trace_detail keys because a new ingest creates new
+    traces — it doesn't mutate existing ones.
     """
     body = await request.body()
     if not body:
@@ -71,6 +91,19 @@ async def otlp_traces_ingest(request: Request) -> list[dict]:
                     )
 
             asyncio.create_task(_broadcast())
+
+            # Invalidate the default trace list key now that new data exists.
+            # This is best-effort: if the cache is unavailable, the log line
+            # is the only indication — the ingest itself already succeeded.
+            try:
+                cache = get_cache()
+                # Unfiltered first page — the UI default view.
+                cache.delete(trace_list_cursor_key(tenant_id=None, cursor=None))
+                # Also bust the insights summary; new traces affect eval tallies.
+                cache.delete(insights_summary_key(limit=100))
+            except Exception:
+                logger.warning("cache invalidation after ingest failed", exc_info=True)
+
     except Exception:
         session.rollback()
         raise
