@@ -1,8 +1,4 @@
-"""
-Lightweight in-process metrics (replace with Prometheus / OTel exporter later).
-
-Counters and simple histograms are enough to prove "we measure behavior" in dev and tests.
-"""
+"""In-process metrics counters and latency histograms."""
 
 from __future__ import annotations
 
@@ -17,7 +13,6 @@ _lock = threading.Lock()
 @dataclass
 class MetricsRegistry:
     counters: dict[str, int] = field(default_factory=dict)
-    # recent eval job latencies (ms), bounded
     eval_latencies_ms: deque[float] = field(default_factory=lambda: deque(maxlen=500))
     cache_hits: int = 0
     cache_misses: int = 0

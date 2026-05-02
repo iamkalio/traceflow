@@ -13,7 +13,6 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-black text-slate-50 flex flex-col selection:bg-indigo-500/30">
-      {/* Navigation */}
       <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/50 backdrop-blur-md">
         <div className="container mx-auto flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2 font-semibold text-lg tracking-tight">
@@ -54,7 +53,6 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 text-center py-24 sm:py-32">
         <div className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300 mb-8">
           <span className="flex h-2 w-2 rounded-full bg-indigo-500 mr-2 animate-pulse"></span>
@@ -66,7 +64,7 @@ export default async function LandingPage() {
         </h1>
         
         <p className="max-w-2xl text-lg sm:text-xl text-slate-400 mb-10">
-          Traces, evals, prompt management and metrics to debug and improve your LLM application. 
+          Traces, evals, and metrics to debug and improve your LLM application.
           Built for teams that need to move fast and stay reliable.
         </p>
         
@@ -102,7 +100,6 @@ export default async function LandingPage() {
           </Link>
         </div>
 
-        {/* Feature Highlights */}
         <div className="grid sm:grid-cols-3 gap-8 mt-24 max-w-5xl text-left">
           <div className="flex flex-col gap-3 p-6 rounded-2xl border border-white/10 bg-white/5">
             <div className="h-10 w-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -134,7 +131,6 @@ export default async function LandingPage() {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
         <p>© {new Date().getFullYear()} Traceflow. Open source under MIT License.</p>
       </footer>
