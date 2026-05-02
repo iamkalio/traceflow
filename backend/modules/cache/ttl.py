@@ -18,17 +18,7 @@ def jittered_ttl(base_ttl_s: int, jitter_pct: float = 0.1) -> int:
     return max(1, base_ttl_s + random.randint(-delta, delta))
 
 
-# ------------------------------------------------------------------
-# Canonical TTLs per data type.
-#
-# These are tuned for traceflow's access patterns:
-#   - Trace lists change whenever a new trace is ingested; keep short.
-#   - Individual trace detail is immutable after ingest; keep long.
-#   - Insights are DB aggregations; expensive but 1-min staleness is fine.
-#   - Eval results change when a background eval job finishes; keep short.
-#
-# Always wrap these with jittered_ttl() at the call site.
-# ------------------------------------------------------------------
+# Canonical TTLs per data type. Always wrap with jittered_ttl() at the call site.
 
 TRACE_LIST_TTL_S: int = 30
 """Trace list endpoint — new traces arrive frequently, so staleness must be

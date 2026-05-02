@@ -137,7 +137,6 @@ export default function TracesPage() {
   }, [spans]);
 
   React.useEffect(() => {
-    // Reset pagination whenever filters change.
     setCursor(null);
     setCursorStack([null]);
     setPageIndex(0);
@@ -146,8 +145,7 @@ export default function TracesPage() {
   }, [q, status, pageSize]);
 
   React.useEffect(() => {
-    // Live updates: subscribe to new traces.
-    // Only auto-apply on the "first page" (cursor=null) so pagination stays stable.
+    // Only auto-apply live updates on the first page so pagination stays stable.
     if (cursor) return;
 
     const url = TRACEFLOW_API_URL.replace(/^http/, "ws") + "/v1/ws/traces";
@@ -162,7 +160,6 @@ export default function TracesPage() {
         if (msg.type !== "trace.upsert" || !msg.item) return;
         const incoming = msg.item;
 
-        // Apply basic client-side filter matching.
         if (status && incoming.status !== status) return;
         if (q) {
           const qq = q.toLowerCase();
@@ -314,13 +311,6 @@ export default function TracesPage() {
             </div>
           </div>
         )}
-
-        <div className="mt-5 grid grid-cols-4 gap-3">
-          <Kpi label="Traces" value={query.data ? String(items.length) : "—"} />
-          <Kpi label="Span count" value="—" />
-          <Kpi label="Latency p50" value="—" />
-          <Kpi label="Cost" value="—" />
-        </div>
 
         <div className="mt-5">
           <Card className="rounded-none border-border/60 ring-0">
@@ -812,21 +802,6 @@ function EvalStatusCell({
         </span>
       ) : null}
     </div>
-  );
-}
-
-function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground">
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-lg font-semibold">{value}</div>
-      </CardContent>
-    </Card>
   );
 }
 

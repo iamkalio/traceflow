@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Activity, BarChart3, ClipboardPen, Database, Lightbulb, Settings, LogOut } from "lucide-react";
+import { Activity, BarChart3, Lightbulb, Settings, LogOut } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,8 +15,6 @@ export function AppShell({
   children: React.ReactNode;
   active: "traces" | "evals" | "insights" | "settings";
 }) {
-  const pathname = usePathname() ?? "";
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-[1600px]">
@@ -41,26 +38,9 @@ export function AppShell({
                 Insights
               </NavItem>
 
-              <div className="pt-2">
-                <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Evaluation
-                </div>
-                <div className="space-y-0.5">
-                  <EvalSubLink href="/evals/llm-as-a-judge" pathname={pathname} icon={<Lightbulb className="size-4" />}>
-                    LLM-as-a-Judge
-                  </EvalSubLink>
-                  <EvalSubLink
-                    href="/evals/human-annotation"
-                    pathname={pathname}
-                    icon={<ClipboardPen className="size-4" />}
-                  >
-                    Human Annotation
-                  </EvalSubLink>
-                  <EvalSubLink href="/evals/datasets" pathname={pathname} icon={<Database className="size-4" />}>
-                    Datasets
-                  </EvalSubLink>
-                </div>
-              </div>
+              <NavItem href="/evals/llm-as-a-judge" active={active === "evals"} icon={<Lightbulb className="size-4" />}>
+                Evaluations
+              </NavItem>
 
               <div className="pt-2">
                 <NavItem href="/settings" active={active === "settings"} icon={<Settings className="size-4" />}>
@@ -112,34 +92,6 @@ function NavItem({
     >
       {icon}
       <span>{children}</span>
-    </Link>
-  );
-}
-
-function EvalSubLink({
-  href,
-  pathname,
-  icon,
-  children,
-}: {
-  href: string;
-  pathname: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const active = pathname === href || pathname.startsWith(`${href}/`);
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        buttonVariants({ variant: active ? "secondary" : "ghost" }),
-        "h-9 w-full justify-start gap-2 px-2 text-[13px]",
-        active ? "font-semibold" : "font-medium",
-      )}
-    >
-      {icon}
-      <span className="truncate">{children}</span>
     </Link>
   );
 }
