@@ -97,6 +97,7 @@ class TraceListItem:
     status: str
     total_tokens: int | None
     total_cost_usd: float | None
+    tenant_id: str | None = None
 
 
 def list_traces(
@@ -264,6 +265,7 @@ def get_trace_list_items_by_ids(session: Session, trace_ids: list[str]) -> list[
                 status=str(r.status),
                 total_tokens=(int(r.total_tokens) if r.total_tokens is not None else None),
                 total_cost_usd=(float(r.total_cost_usd) if r.total_cost_usd is not None else None),
+                tenant_id=(latest.tenant_id if latest else None),
             )
         )
     return items

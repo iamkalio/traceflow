@@ -87,7 +87,8 @@ async def otlp_traces_ingest(request: Request) -> list[dict]:
                                 "total_tokens": item.total_tokens,
                                 "total_cost_usd": item.total_cost_usd,
                             },
-                        }
+                        },
+                        tenant_id=item.tenant_id,
                     )
 
             asyncio.create_task(_broadcast())

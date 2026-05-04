@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from modules.evaluation.router import router as evaluation_router
@@ -18,15 +18,18 @@ app.include_router(evaluation_router)
 
 
 @app.websocket("/v1/ws/traces")
-async def ws_traces(ws: WebSocket) -> None:
-    await trace_ws_manager.connect(ws)
+async def ws_traces(
+    ws: WebSocket,
+    tenant_id: str | None = Query(default=None),
+) -> None:
+    await trace_ws_manager.connect(ws, tenant_id)
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        await trace_ws_manager.disconnect(ws)
+        await trace_ws_manager.disconnect(ws, tenant_id)
     except Exception:
-        await trace_ws_manager.disconnect(ws)
+        await trace_ws_manager.disconnect(ws, tenant_id)
 
 
 if __name__ == "__main__":
