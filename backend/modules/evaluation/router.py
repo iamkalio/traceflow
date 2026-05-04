@@ -36,6 +36,7 @@ async def run_trace_eval(
     trace_id: str,
     payload: dict,
     x_openai_api_key: str | None = Header(None, alias="X-OpenAI-API-Key"),
+    tenant_id: str | None = Query(default=None),
 ) -> dict:
     """Queue an eval run.
 
@@ -67,7 +68,7 @@ async def run_trace_eval(
             session,
             trace_id=trace_id,
             span_id=None,
-            tenant_id=None,
+            tenant_id=tenant_id,
             evaluator_type=eval_name,
             evaluator_version="v1",
         )
@@ -99,6 +100,7 @@ async def run_trace_eval(
 @router.get("/v1/insights/summary", response_model=InsightsSummaryOut)
 async def insights_summary(
     limit: int = Query(default=100, ge=1, le=500, description="Recent eval runs to include"),
+    tenant_id: str | None = Query(default=None),
 ) -> InsightsSummaryOut:
     """Rollups for the Insights page: score mix, failure types, eval spend.
 
@@ -107,12 +109,12 @@ async def insights_summary(
     optimisation — the Insights page can be loaded many times a minute and
     the underlying data changes slowly relative to trace ingestion.
     """
-    key = insights_summary_key(limit=limit)
+    key = insights_summary_key(limit, tenant_id)
 
     def _compute() -> dict:
         session = SessionLocal()
         try:
-            raw = compute_eval_insights_summary(session, limit=limit)
+            raw = compute_eval_insights_summary(session, limit=limit, tenant_id=tenant_id)
             response = InsightsSummaryOut(
                 sample_size=raw["sample_size"],
                 completed_with_score=raw["completed_with_score"],

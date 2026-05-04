@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import * as React from "react";
 import { ChevronRight, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
@@ -70,18 +71,21 @@ export default function TracesPage() {
   const [pageIndex, setPageIndex] = React.useState<number>(0);
   const qc = useQueryClient();
   const router = useRouter();
+  const { data: session } = useSession();
+  const tenantId = session?.user?.tenantId ?? null;
   const [runEvalLoading, setRunEvalLoading] = React.useState(false);
   const [regressionN, setRegressionN] = React.useState(10);
   const [regressionLoading, setRegressionLoading] = React.useState(false);
 
   const query = useQuery({
-    queryKey: ["traces", { q, status, pageSize, cursor }],
+    queryKey: ["traces", { q, status, pageSize, cursor, tenantId }],
     queryFn: () =>
       listTraces({
         limit: pageSize,
         cursor: cursor ?? undefined,
         q: q || undefined,
         status: status || undefined,
+        tenantId,
       }),
   });
   const items = React.useMemo(
@@ -169,7 +173,7 @@ export default function TracesPage() {
         }
 
         qc.setQueryData<TraceListResponse>(
-          ["traces", { q, status, pageSize, cursor }],
+          ["traces", { q, status, pageSize, cursor, tenantId }],
           (prev) => {
             const curr = prev?.items ?? [];
             const prevRow = curr.find((t) => t.trace_id === incoming.trace_id);
@@ -282,6 +286,7 @@ export default function TracesPage() {
                       const out = await runRegression({
                         n: regressionN,
                         evalName: "regression_compare_v1",
+                        tenantId,
                       });
                       await qc.invalidateQueries({ queryKey: ["eval-runs-global"] });
                       await qc.invalidateQueries({ queryKey: ["insights-summary"] });
@@ -621,7 +626,7 @@ export default function TracesPage() {
                             if (!selectedTraceId) return;
                             setRunEvalLoading(true);
                             try {
-                              await runTraceEval(selectedTraceId, "groundedness");
+                              await runTraceEval(selectedTraceId, "groundedness", tenantId);
                               await qc.invalidateQueries({
                                 queryKey: ["trace-eval-runs", selectedTraceId],
                               });

@@ -21,7 +21,6 @@ function SignInContent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4 text-slate-50">
       <div className="w-full max-w-sm space-y-6">
-        {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-2">
             <Activity className="h-7 w-7 text-indigo-400" />
@@ -30,14 +29,12 @@ function SignInContent() {
           <p className="text-sm text-slate-400">Trace → Eval → Insight</p>
         </div>
 
-        {/* Error banner */}
         {error ? (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {ERROR_MESSAGES[error] ?? ERROR_MESSAGES.Default}
           </div>
         ) : null}
 
-        {/* Card */}
         <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-8 space-y-4">
           <div className="text-center space-y-1">
             <h1 className="text-xl font-semibold text-white">Sign in to your account</h1>

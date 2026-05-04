@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -47,10 +48,12 @@ function InsightsContent() {
   const groupParam = searchParams.get("group");
   const groupId = groupParam ? Number.parseInt(groupParam, 10) : NaN;
   const validGroup = Number.isFinite(groupId) && groupId > 0 ? groupId : null;
+  const { data: session } = useSession();
+  const tenantId = session?.user?.tenantId ?? null;
 
   const summaryQ = useQuery({
-    queryKey: ["insights-summary"],
-    queryFn: () => getInsightsSummary({ limit: 120 }),
+    queryKey: ["insights-summary", tenantId],
+    queryFn: () => getInsightsSummary({ limit: 120, tenantId }),
     refetchInterval: 8000,
   });
 

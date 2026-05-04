@@ -187,12 +187,15 @@ def list_eval_runs_recent(
     *,
     limit: int = 100,
     trace_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> list[EvalRun]:
-    """Recent eval runs across all traces (or filtered by trace_id)."""
+    """Recent eval runs across all traces (or filtered by trace_id / tenant_id)."""
     limit = max(1, min(int(limit), 500))
     stmt = select(EvalRun)
     if trace_id:
         stmt = stmt.where(EvalRun.trace_id == trace_id)
+    if tenant_id:
+        stmt = stmt.where(EvalRun.tenant_id == tenant_id)
     stmt = stmt.order_by(EvalRun.created_at.desc(), EvalRun.id.desc()).limit(limit)
     return list(session.scalars(stmt).all())
 
@@ -269,12 +272,15 @@ def list_eval_runs_for_group(session: Session, group_id: int) -> list[EvalRun]:
     return list(session.scalars(stmt).all())
 
 
-def compute_eval_insights_summary(session: Session, *, limit: int = 100) -> dict[str, Any]:
-    """
-    Aggregate recent eval_runs for Insights UI: scores, label buckets, failure_type counts, cost.
-    """
+def compute_eval_insights_summary(
+    session: Session,
+    *,
+    limit: int = 100,
+    tenant_id: str | None = None,
+) -> dict[str, Any]:
+    """Aggregate recent eval_runs for Insights UI: scores, label buckets, failure_type counts, cost."""
     limit = max(1, min(int(limit), 500))
-    rows = list_eval_runs_recent(session, limit=limit, trace_id=None)
+    rows = list_eval_runs_recent(session, limit=limit, trace_id=None, tenant_id=tenant_id)
     completed_scored = [r for r in rows if r.status == "completed" and r.score is not None]
     scores = [float(r.score) for r in completed_scored if r.score is not None]
     avg_score = sum(scores) / len(scores) if scores else None

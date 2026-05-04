@@ -99,12 +99,14 @@ export function listTraces(params: {
   cursor?: string;
   q?: string;
   status?: string;
+  tenantId?: string | null;
 }): Promise<TraceListResponse> {
   const usp = new URLSearchParams();
   usp.set("limit", String(params.limit));
   if (params.cursor) usp.set("cursor", params.cursor);
   if (params.q) usp.set("q", params.q);
   if (params.status) usp.set("status", params.status);
+  if (params.tenantId) usp.set("tenant_id", params.tenantId);
   return http<TraceListResponse>(`/v1/traces?${usp.toString()}`);
 }
 
@@ -137,18 +139,28 @@ export async function getEvalProviderConfiguredLocal(): Promise<EvalProviderSett
   };
 }
 
-export async function runTraceEval(traceId: string, evalName: string): Promise<{ status: string }> {
+export async function runTraceEval(
+  traceId: string,
+  evalName: string,
+  tenantId?: string | null,
+): Promise<{ status: string }> {
   const key = getStoredOpenAIKey();
   if (!key) {
     throw new Error("No OpenAI API key in this browser. Add it under Settings.");
   }
-  return http<{ status: string }>(`/v1/traces/${encodeURIComponent(traceId)}/evals/run`, {
-    method: "POST",
-    body: JSON.stringify({ eval_name: evalName }),
-    headers: {
-      "X-OpenAI-API-Key": key,
+  const usp = new URLSearchParams();
+  if (tenantId) usp.set("tenant_id", tenantId);
+  const qs = usp.toString();
+  return http<{ status: string }>(
+    `/v1/traces/${encodeURIComponent(traceId)}/evals/run${qs ? `?${qs}` : ""}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ eval_name: evalName }),
+      headers: {
+        "X-OpenAI-API-Key": key,
+      },
     },
-  });
+  );
 }
 
 export type EvalRun = {
@@ -175,11 +187,15 @@ export function listTraceEvalRuns(traceId: string): Promise<EvalRun[]> {
   return http<EvalRun[]>(`/v1/traces/${encodeURIComponent(traceId)}/eval-runs`);
 }
 
-/** Recent eval runs (LLM-as-a-Judge, etc.) across all traces or filtered by trace. */
-export function listEvalRuns(params?: { limit?: number; traceId?: string }): Promise<EvalRun[]> {
+export function listEvalRuns(params?: {
+  limit?: number;
+  traceId?: string;
+  tenantId?: string | null;
+}): Promise<EvalRun[]> {
   const usp = new URLSearchParams();
   if (params?.limit != null) usp.set("limit", String(params.limit));
   if (params?.traceId) usp.set("trace_id", params.traceId);
+  if (params?.tenantId) usp.set("tenant_id", params.tenantId);
   const qs = usp.toString();
   return http<EvalRun[]>(`/v1/eval-runs${qs ? `?${qs}` : ""}`);
 }
@@ -198,9 +214,13 @@ export type InsightsSummary = {
   top_failure_types: { failure_type: string; count: number }[];
 };
 
-export function getInsightsSummary(params?: { limit?: number }): Promise<InsightsSummary> {
+export function getInsightsSummary(params?: {
+  limit?: number;
+  tenantId?: string | null;
+}): Promise<InsightsSummary> {
   const usp = new URLSearchParams();
   if (params?.limit != null) usp.set("limit", String(params.limit));
+  if (params?.tenantId) usp.set("tenant_id", params.tenantId);
   const qs = usp.toString();
   return http<InsightsSummary>(`/v1/insights/summary${qs ? `?${qs}` : ""}`);
 }
@@ -246,6 +266,7 @@ export function getEvalRunGroup(groupId: number): Promise<EvalRunGroupDetail> {
 export function runRegression(params: {
   n: number;
   evalName?: string;
+  tenantId?: string | null;
 }): Promise<{ status: string; group_id: number; eval_run_ids: number[] }> {
   const key = getStoredOpenAIKey();
   if (!key) {
@@ -258,6 +279,7 @@ export function runRegression(params: {
       body: JSON.stringify({
         n: params.n,
         eval_name: params.evalName ?? "regression_compare_v1",
+        tenant_id: params.tenantId ?? null,
       }),
       headers: {
         "X-OpenAI-API-Key": key,
