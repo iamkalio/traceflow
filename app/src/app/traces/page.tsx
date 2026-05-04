@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import * as React from "react";
 import { ChevronRight, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
@@ -70,18 +71,22 @@ export default function TracesPage() {
   const [pageIndex, setPageIndex] = React.useState<number>(0);
   const qc = useQueryClient();
   const router = useRouter();
+  const { data: session } = useSession();
+  const tenantId = session?.user?.tenantId ?? null;
   const [runEvalLoading, setRunEvalLoading] = React.useState(false);
+  const [runEvalError, setRunEvalError] = React.useState<string | null>(null);
   const [regressionN, setRegressionN] = React.useState(10);
   const [regressionLoading, setRegressionLoading] = React.useState(false);
 
   const query = useQuery({
-    queryKey: ["traces", { q, status, pageSize, cursor }],
+    queryKey: ["traces", { q, status, pageSize, cursor, tenantId }],
     queryFn: () =>
       listTraces({
         limit: pageSize,
         cursor: cursor ?? undefined,
         q: q || undefined,
         status: status || undefined,
+        tenantId,
       }),
   });
   const items = React.useMemo(
@@ -148,7 +153,8 @@ export default function TracesPage() {
     // Only auto-apply live updates on the first page so pagination stays stable.
     if (cursor) return;
 
-    const url = TRACEFLOW_API_URL.replace(/^http/, "ws") + "/v1/ws/traces";
+    const wsBase = TRACEFLOW_API_URL.replace(/^http/, "ws") + "/v1/ws/traces";
+    const url = tenantId ? `${wsBase}?tenant_id=${encodeURIComponent(tenantId)}` : wsBase;
     const ws = new WebSocket(url);
 
     ws.onmessage = (ev) => {
@@ -169,7 +175,7 @@ export default function TracesPage() {
         }
 
         qc.setQueryData<TraceListResponse>(
-          ["traces", { q, status, pageSize, cursor }],
+          ["traces", { q, status, pageSize, cursor, tenantId }],
           (prev) => {
             const curr = prev?.items ?? [];
             const prevRow = curr.find((t) => t.trace_id === incoming.trace_id);
@@ -197,7 +203,7 @@ export default function TracesPage() {
     return () => {
       ws.close();
     };
-  }, [qc, cursor, pageSize, q, status]);
+  }, [qc, cursor, pageSize, q, status, tenantId]);
 
   const selectedSpan = selectedSpanId
     ? (spans.find((s) => s.span_id === selectedSpanId) ?? null)
@@ -282,6 +288,7 @@ export default function TracesPage() {
                       const out = await runRegression({
                         n: regressionN,
                         evalName: "regression_compare_v1",
+                        tenantId,
                       });
                       await qc.invalidateQueries({ queryKey: ["eval-runs-global"] });
                       await qc.invalidateQueries({ queryKey: ["insights-summary"] });
@@ -392,7 +399,7 @@ export default function TracesPage() {
                         <TableRow
                           key={t.trace_id}
                           className="cursor-pointer border-b border-white/20"
-                          onClick={() => setSelectedTraceId(t.trace_id)}
+                          onClick={() => { setSelectedTraceId(t.trace_id); setRunEvalError(null); }}
                         >
                           <TableCell
                             className="sticky left-0 z-10 w-10 min-w-10 max-w-10 bg-card"
@@ -620,8 +627,9 @@ export default function TracesPage() {
                           onClick={async () => {
                             if (!selectedTraceId) return;
                             setRunEvalLoading(true);
+                            setRunEvalError(null);
                             try {
-                              await runTraceEval(selectedTraceId, "groundedness");
+                              await runTraceEval(selectedTraceId, "groundedness", tenantId);
                               await qc.invalidateQueries({
                                 queryKey: ["trace-eval-runs", selectedTraceId],
                               });
@@ -630,6 +638,8 @@ export default function TracesPage() {
                               });
                               await qc.invalidateQueries({ queryKey: ["insights-summary"] });
                               await qc.invalidateQueries({ queryKey: ["traces"] });
+                            } catch (err) {
+                              setRunEvalError(err instanceof Error ? err.message : "Failed to queue eval");
                             } finally {
                               setRunEvalLoading(false);
                             }
@@ -650,6 +660,9 @@ export default function TracesPage() {
                       </Link>
                     </div>
                   </div>
+                  {runEvalError ? (
+                    <p className="text-xs text-destructive">{runEvalError}</p>
+                  ) : null}
                   {evalRunsQ.isLoading ? (
                     <p className="text-xs text-muted-foreground">
                       Loading eval status…
@@ -670,37 +683,44 @@ export default function TracesPage() {
                       for reasoning, score, and prompt/context improvements.
                     </p>
                   ) : (
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      Latest run:{" "}
-                      <span className="font-medium text-foreground">
-                        {evalRuns[0].status}
-                      </span>
-                      {evalRuns[0].score != null ? (
-                        <>
-                          {" "}
-                          · score{" "}
-                          <span className="text-foreground">{evalRuns[0].score}</span>
-                        </>
+                    <>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        Latest run:{" "}
+                        <span className="font-medium text-foreground">
+                          {evalRuns[0].status}
+                        </span>
+                        {evalRuns[0].score != null ? (
+                          <>
+                            {" "}
+                            · score{" "}
+                            <span className="text-foreground">{evalRuns[0].score}</span>
+                          </>
+                        ) : null}
+                        {evalRuns[0].label ? (
+                          <>
+                            {" "}
+                            ·{" "}
+                            <span className="text-foreground">{evalRuns[0].label}</span>
+                          </>
+                        ) : null}
+                        {evalRuns[0].created_at ? (
+                          <> · {formatDateTime(evalRuns[0].created_at)}</>
+                        ) : null}
+                        . Full details in{" "}
+                        <Link
+                          href={`/evals/llm-as-a-judge?trace=${encodeURIComponent(selectedTraceId ?? "")}`}
+                          className="font-medium text-foreground underline underline-offset-2"
+                        >
+                          LLM-as-a-Judge
+                        </Link>
+                        .
+                      </p>
+                      {evalRuns[0].status === "failed" && evalRuns[0].error ? (
+                        <p className="mt-1 text-xs text-destructive">
+                          {evalRuns[0].error}
+                        </p>
                       ) : null}
-                      {evalRuns[0].label ? (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <span className="text-foreground">{evalRuns[0].label}</span>
-                        </>
-                      ) : null}
-                      {evalRuns[0].created_at ? (
-                        <> · {formatDateTime(evalRuns[0].created_at)}</>
-                      ) : null}
-                      . Full details in{" "}
-                      <Link
-                        href={`/evals/llm-as-a-judge?trace=${encodeURIComponent(selectedTraceId ?? "")}`}
-                        className="font-medium text-foreground underline underline-offset-2"
-                      >
-                        LLM-as-a-Judge
-                      </Link>
-                      .
-                    </p>
+                    </>
                   )}
                 </div>
 

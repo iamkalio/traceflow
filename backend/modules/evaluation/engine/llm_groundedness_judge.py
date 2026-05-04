@@ -73,12 +73,22 @@ class GroundednessParseError(Exception):
 
 
 def is_transient_openai_error(exc: BaseException) -> bool:
-    """Errors where retrying the same request may succeed (RQ job retry)."""
+    """Errors where retrying the same request may succeed (RQ job retry).
+
+    ``insufficient_quota`` is a permanent account-level failure (billing/credits
+    exhausted) — retrying will never help, so we exclude it from the transient set
+    and let the job fail immediately so the DB row transitions to ``failed``.
+    """
     try:
         from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
     except ImportError:
         return False
-    if isinstance(exc, (APIConnectionError, APITimeoutError, RateLimitError)):
+    if isinstance(exc, (APIConnectionError, APITimeoutError)):
+        return True
+    if isinstance(exc, RateLimitError):
+        body = exc.body or {}
+        if isinstance(body, dict) and body.get("error", {}).get("code") == "insufficient_quota":
+            return False
         return True
     if isinstance(exc, APIStatusError):
         return exc.status_code in (408, 429, 500, 502, 503, 504)

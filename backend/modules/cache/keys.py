@@ -115,18 +115,17 @@ def trace_detail_key(
 
 def insights_summary_key(
     limit: int,
+    tenant_id: str | None = None,
     *,
     version: str = CacheVersion.V1,
 ) -> str:
     """Cache key for GET /v1/insights/summary.
 
-    The limit parameter changes which eval runs are included in the rollup,
-    so it is part of the key.
-
     Key format:
-        {version}:traceflow:insights:summary:{limit}
+        {version}:traceflow:insights:summary:{tenant}:{limit}
     """
-    return f"{version}:traceflow:insights:summary:{limit}"
+    t = tenant_id or "_"
+    return f"{version}:traceflow:insights:summary:{t}:{limit}"
 
 
 def eval_results_key(

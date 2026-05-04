@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Suspense } from "react";
@@ -44,13 +45,16 @@ function LlmAsJudgeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const traceFilter = searchParams.get("trace");
+  const { data: session } = useSession();
+  const tenantId = session?.user?.tenantId ?? null;
 
   const runsQ = useQuery({
-    queryKey: [...GLOBAL_EVAL_KEY, traceFilter ?? "all"],
+    queryKey: [...GLOBAL_EVAL_KEY, traceFilter ?? "all", tenantId],
     queryFn: () =>
       listEvalRuns({
         limit: 150,
         traceId: traceFilter ?? undefined,
+        tenantId,
       }),
     refetchInterval: (q) => {
       const rows = q.state.data;
@@ -60,8 +64,8 @@ function LlmAsJudgeContent() {
   });
 
   const summaryQ = useQuery({
-    queryKey: ["insights-summary"],
-    queryFn: () => getInsightsSummary({ limit: 100 }),
+    queryKey: ["insights-summary", tenantId],
+    queryFn: () => getInsightsSummary({ limit: 100, tenantId }),
     refetchInterval: 15000,
   });
 

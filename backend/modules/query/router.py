@@ -195,14 +195,12 @@ async def list_trace_eval_runs(trace_id: str) -> list[EvalRunOut]:
 async def list_eval_runs_api(
     limit: int = Query(default=100, ge=1, le=500),
     trace_id: str | None = Query(default=None, description="Only runs for this trace_id"),
+    tenant_id: str | None = Query(default=None),
 ) -> list[EvalRunOut]:
     """Recent LLM-as-a-judge (and other) eval runs across traces."""
-    # Not cached — same reason as list_trace_eval_runs above.  Eval run
-    # status transitions happen frequently and clients expect near-real-time
-    # updates.
     session = SessionLocal()
     try:
-        rows = list_eval_runs_recent(session, limit=limit, trace_id=trace_id)
+        rows = list_eval_runs_recent(session, limit=limit, trace_id=trace_id, tenant_id=tenant_id)
         return [EvalRunOut.model_validate(r) for r in rows]
     finally:
         session.close()
