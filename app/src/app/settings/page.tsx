@@ -66,10 +66,11 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="text-muted-foreground">
-              Your OpenAI API key is stored only in this browser (localStorage).
-              It is sent to the Traceflow API in the{" "}
-              <code className="text-xs">X-OpenAI-API-Key</code> header when you
-              run an eval — the server does not save it.
+              Your OpenAI API key is stored only in this browser tab
+              (sessionStorage) and cleared when you close the tab. It is sent
+              to the Traceflow API when you run an eval, where the server holds
+              it in Redis for 5 minutes under a one-time token — the raw key is
+              never written to the database or logged.
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

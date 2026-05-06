@@ -4,10 +4,12 @@ from modules.jobs.client import (
     EVAL_RUN_JOB,
     enqueue_job,
     stable_job_id,
+    store_eval_key,
 )
 
 __all__ = [
     "EVAL_RUN_JOB",
     "enqueue_job",
     "stable_job_id",
+    "store_eval_key",
 ]
