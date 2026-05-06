@@ -14,13 +14,12 @@ logger = logging.getLogger(__name__)
 def _assert_job_handlers_importable() -> None:
     """Fail fast with a clear error if the worker image cannot load RQ job entrypoints."""
     mod = importlib.import_module("modules.jobs.tasks.eval_tasks")
-    for name in ("ping_job", "eval_span_job", "eval_run_job"):
-        fn = getattr(mod, name, None)
-        if not callable(fn):
-            raise RuntimeError(
-                f"modules.jobs.tasks.eval_tasks.{name} is missing or not callable "
-                f"(rebuild worker; PYTHONPATH must include backend). Got: {fn!r}"
-            )
+    fn = getattr(mod, "eval_run_job", None)
+    if not callable(fn):
+        raise RuntimeError(
+            "modules.jobs.tasks.eval_tasks.eval_run_job is missing or not callable "
+            f"(rebuild worker; PYTHONPATH must include backend). Got: {fn!r}"
+        )
     # Ensure the string path RQ uses resolves (same as job.perform())
     from rq.utils import import_attribute
 

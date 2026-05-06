@@ -16,41 +16,17 @@ from modules.evaluation.domain.evaluator import evaluator_family, normalize_eval
 from modules.evaluation.engine.groundedness_eval import run_groundedness_span_eval
 from modules.evaluation.engine.llm_groundedness_judge import is_transient_openai_error
 from modules.evaluation.engine.regression_compare_eval import run_regression_compare_span_eval
+from modules.jobs.client import fetch_and_delete_eval_key
 from modules.jobs.orchestration.eval_pipeline import finalize_eval_run_from_engine_detail
 
 logger = logging.getLogger(__name__)
 
 
-def ping_job(msg: str = "ping") -> str:
-    logger.info("ping_job: %s", msg)
-    return msg
-
-
-def eval_span_job(trace_id: str, span_id: str) -> str:
-    """RQ processor: session + delegate to background service."""
-    job = get_current_job()
-    job_id = job.id if job is not None else None
-    session = SessionLocal()
-    try:
-        out, _ = run_groundedness_span_eval(session, trace_id, span_id)
-        return out
-    except Exception:
-        logger.exception(
-            "eval_span_job failed job_id=%s trace_id=%s span_id=%s",
-            job_id,
-            trace_id,
-            span_id,
-        )
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
-def eval_run_job(eval_run_id: int, openai_api_key: str) -> str:
+def eval_run_job(eval_run_id: int, openai_api_key_token: str) -> str:
     """
     eval_runs: queued -> running -> completed / skipped / failed.
-    ``openai_api_key`` is supplied per request (browser header); not read from the database.
+    ``openai_api_key_token`` is a one-time Redis token; the actual key is
+    fetched and deleted at job start so it never lives in serialised job kwargs.
     """
     job = get_current_job()
     job_id = job.id if job is not None else None
@@ -61,9 +37,13 @@ def eval_run_job(eval_run_id: int, openai_api_key: str) -> str:
             logger.warning("eval_run_job: no EvalRun id=%s job_id=%s", eval_run_id, job_id)
             return "missing"
 
-        api_key = (openai_api_key or "").strip()
+        api_key = (fetch_and_delete_eval_key(openai_api_key_token) or "").strip()
         if not api_key:
-            set_eval_run_failed(session, eval_run_id, error="No OpenAI API key provided to worker")
+            set_eval_run_failed(
+                session,
+                eval_run_id,
+                error="API key token expired or already consumed — re-run the eval.",
+            )
             return "ok"
 
         set_eval_run_running(session, eval_run_id)

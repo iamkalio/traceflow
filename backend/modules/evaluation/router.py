@@ -26,7 +26,7 @@ from modules.evaluation.schemas import (
     RegressionRunQueuedOut,
     WorstRegressionOut,
 )
-from modules.jobs import EVAL_RUN_JOB, enqueue_job, stable_job_id
+from modules.jobs import EVAL_RUN_JOB, enqueue_job, stable_job_id, store_eval_key
 
 router = APIRouter(tags=["evaluation"])
 
@@ -77,10 +77,11 @@ async def run_trace_eval(
         safe_rq_description = (
             f"eval_run_job(eval_run_id={run.id}, trace_id={trace_id}, evaluator={eval_name})"
         )
+        key_token = store_eval_key(key)
         enqueue_job(
             EVAL_RUN_JOB,
             job_id=jid,
-            kwargs={"eval_run_id": run.id, "openai_api_key": key},
+            kwargs={"eval_run_id": run.id, "openai_api_key_token": key_token},
             retry=retry,
             description=safe_rq_description,
         )
@@ -232,10 +233,11 @@ async def run_regression(
                 f"eval_run_job(eval_run_id={run.id}, trace_id={tid}, "
                 f"evaluator={eval_name}, group_id={group.id})"
             )
+            key_token = store_eval_key(key)
             enqueue_job(
                 EVAL_RUN_JOB,
                 job_id=jid,
-                kwargs={"eval_run_id": run.id, "openai_api_key": key},
+                kwargs={"eval_run_id": run.id, "openai_api_key_token": key_token},
                 retry=retry,
                 description=safe_rq_description,
             )
