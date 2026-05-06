@@ -21,32 +21,6 @@ from modules.jobs.orchestration.eval_pipeline import finalize_eval_run_from_engi
 logger = logging.getLogger(__name__)
 
 
-def ping_job(msg: str = "ping") -> str:
-    logger.info("ping_job: %s", msg)
-    return msg
-
-
-def eval_span_job(trace_id: str, span_id: str) -> str:
-    """RQ processor: session + delegate to background service."""
-    job = get_current_job()
-    job_id = job.id if job is not None else None
-    session = SessionLocal()
-    try:
-        out, _ = run_groundedness_span_eval(session, trace_id, span_id)
-        return out
-    except Exception:
-        logger.exception(
-            "eval_span_job failed job_id=%s trace_id=%s span_id=%s",
-            job_id,
-            trace_id,
-            span_id,
-        )
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
 def eval_run_job(eval_run_id: int, openai_api_key: str) -> str:
     """
     eval_runs: queued -> running -> completed / skipped / failed.

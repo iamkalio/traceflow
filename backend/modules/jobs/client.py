@@ -8,9 +8,6 @@ import redis
 from rq import Queue
 from rq.job import Retry
 
-# RQ job import paths (must match modules.jobs.tasks.eval_tasks)
-PING_JOB = "modules.jobs.tasks.eval_tasks.ping_job"
-EVAL_SPAN_JOB = "modules.jobs.tasks.eval_tasks.eval_span_job"
 EVAL_RUN_JOB = "modules.jobs.tasks.eval_tasks.eval_run_job"
 
 
@@ -51,21 +48,3 @@ def enqueue_job(
     else:
         job = q.enqueue(func, kwargs=kwargs, job_id=job_id, retry=retry)
     return job.id
-
-
-def enqueue_ping() -> str:
-    jid = stable_job_id("ping", "v1")
-    return enqueue_job(PING_JOB, job_id=jid, kwargs={"msg": "ping"})
-
-
-def enqueue_eval_span(trace_id: str, span_id: str) -> str:
-    """Queue groundedness eval: worker loads span from DB and runs LLM judge (or skipped/error rows if misconfigured)."""
-    jid = stable_job_id("eval_span", "groundedness", "v1", trace_id, span_id)
-    # Transient OpenAI/network failures: re-raised from judge; RQ retries with backoff.
-    retry = Retry(max=5, interval=[10, 30, 60, 120, 300])
-    return enqueue_job(
-        EVAL_SPAN_JOB,
-        job_id=jid,
-        kwargs={"trace_id": trace_id, "span_id": span_id},
-        retry=retry,
-    )
